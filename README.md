@@ -5,7 +5,7 @@ Rust-compatible implementation of the Majiro Engine
 
 - Runs games built on the Majiro Engine directly from their original game archives
 - One codebase, two backends: native desktop (winit + wgpu) and WebAssembly (wasm32) for in-browser play
-- High-resolution resource patches — drop-in upscaled asset packs (2x, 4x, 4K, etc.) layered on top of the original game data
+- High-resolution resource patches — drop-in upscaled asset packs at any integer scale (2x, 3x, ...) layered on top of the original game data
 - Script IR patching — rewrite game scripts at the IR level, enabling UTF-8 text replacement for translations and localization
 - Save compatibility with the original engine — saves are theoretically interchangeable in both directions (loading original-engine saves into this implementation is tested)
 - Per-game build profiles; ships with two build targets
@@ -50,7 +50,7 @@ pip install fastapi uvicorn
 python python_scripts/dev_server.py --port 8000
 ```
 
-Pre-built server binaries for common platforms may be provided later. IR and patch creation tools will be released in a separate repository.
+Pre-built server binaries for common platforms may be provided later. IR and patch creation tools live in the separate [ReMajiroTools](https://github.com/luoyily/ReMajiroTools) repository.
 
 ## Legal Disclaimer
 
@@ -62,4 +62,4 @@ Pre-built server binaries for common platforms may be provided later. IR and pat
 
 **Requirements to run.** To use this engine to play a game, you must possess a legally obtained copy of the original game (e.g. original physical media or an official digital download).
 
-**Purpose.** This project is intended for technical research, software preservation, and educational purposes only.
+**Purpose.** This project is intended for technical research, software preservation, and educational purposes only. It must not be used for commercial purposes. The developers assume no responsibility for any actions taken by users of this software.
