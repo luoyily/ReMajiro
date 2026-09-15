@@ -1,0 +1,10 @@
+[package]
+name = "vm"
+version = "0.1.0"
+edition = "2021"
+description = "Majiro Engine script virtual machine: opcodes, instruction set, disassembly"
+
+[dependencies]
+formats = { path = "../formats" }
+encoding_rs = "0.8"
+web-time = { workspace = true }

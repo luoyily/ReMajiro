@@ -1,0 +1,27 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2021"
+description = "owarusekai game entry point: window, asset loading, engine bootstrap"
+
+[lib]
+name = "game"
+path = "src/lib.rs"
+
+[[bin]]
+name = "owarusekai"
+path = "src/bin/ostb.rs"
+
+[dependencies]
+engine = { path = "../engine" }
+platform-desktop = { path = "../platform-desktop" }
+shell = { path = "../shell" }
+formats = { path = "../formats" }
+vm = { path = "../vm" }
+winit = { workspace = true }
+wgpu = { workspace = true }
+env_logger = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+
+[build-dependencies]
+winresource = { version = "0.1.31", default-features = false }

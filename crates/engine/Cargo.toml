@@ -1,0 +1,21 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+description = "Majiro Engine runtime: scene, resource manager, renderer, audio, save, input"
+
+[dependencies]
+formats = { path = "../formats" }
+vm = { path = "../vm" }
+encoding_rs = "0.8"
+fontdue = "0.9"
+png = "0.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+wgpu = { workspace = true }
+winit = { workspace = true }
+bytemuck = { workspace = true }
+pollster = { workspace = true }
+web-time = { workspace = true }

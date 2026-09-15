@@ -1,0 +1,11 @@
+[package]
+name = "shell"
+version = "0.1.0"
+edition = "2021"
+description = "Platform-neutral game session: VM bootstrap, scheduler loop, frame publishing. Desktop (winit) and web (worker) shells both drive this."
+
+[dependencies]
+engine = { path = "../engine" }
+formats = { path = "../formats" }
+vm = { path = "../vm" }
+winit = { workspace = true }

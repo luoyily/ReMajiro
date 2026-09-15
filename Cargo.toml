@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/formats",
+    "crates/vm",
+    "crates/engine",
+    "crates/shell",
+    "crates/owarusekai",
+    "crates/ruri",
+    "crates/platform-desktop",
+    "crates/platform-web",
+]
+
+[workspace.dependencies]
+winit = "0.30"
+wgpu = "26"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+env_logger = "0.11"
+web-time = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = false
+incremental = false

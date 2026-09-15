@@ -1,0 +1,25 @@
+[package]
+name = "platform-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop (Windows) adapters for engine ports: audio output, movie decoding, input translation, shell services"
+
+[dependencies]
+engine = { path = "../engine" }
+rodio = { version = "0.22.2", default-features = false, features = ["playback", "wav", "vorbis", "symphonia-adpcm"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+] }
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Time",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dependencies.winit]
+workspace = true
