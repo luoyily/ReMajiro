@@ -314,6 +314,7 @@ function fitCanvasToStage() {
 
 document.getElementById("pick-owarusekai").addEventListener("click", () => pickAndBoot("owarusekai"));
 document.getElementById("pick-ruri").addEventListener("click", () => pickAndBoot("ruri"));
+document.getElementById("pick-paradise").addEventListener("click", () => pickAndBoot("paradise"));
 document.getElementById("fullscreen").addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenButton();

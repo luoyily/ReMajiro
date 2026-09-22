@@ -1,12 +1,12 @@
 use crate::format::format_utc_timestamp;
-pub fn install() {
-    install_panic_reporting();
+pub fn install(bin_name: &str) {
+    install_panic_reporting(bin_name.to_owned());
     install_services();
 }
-pub(crate) fn install_panic_reporting() {
+pub(crate) fn install_panic_reporting(bin_name: String) {
     std::panic::set_hook(
-        Box::new(|info| {
-            web_sys::console::error_1(&format!("owarusekai panic: {info}").into());
+        Box::new(move |info| {
+            web_sys::console::error_1(&format!("{bin_name} panic: {info}").into());
         }),
     );
 }

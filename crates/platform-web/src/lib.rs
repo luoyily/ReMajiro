@@ -13,8 +13,8 @@ pub(crate) mod saves;
 #[cfg(target_arch = "wasm32")]
 pub mod worker;
 #[cfg(not(target_arch = "wasm32"))]
-pub fn install() {}
+pub fn install(_bin_name: &str) {}
 #[cfg(target_arch = "wasm32")]
-pub fn install() {
-    adapters::install();
+pub fn install(bin_name: &str) {
+    adapters::install(bin_name);
 }

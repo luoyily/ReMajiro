@@ -4,7 +4,7 @@ Rust-compatible implementation of the Majiro Engine
 ## Features
 
 - Runs games built on the Majiro Engine directly from their original game archives
-- One codebase, two backends: native desktop (winit + wgpu) and WebAssembly (wasm32) for in-browser play
+- One codebase, two backends: native desktop (winit + wgpu) and WebAssembly (wasm32) for in-browser(Chrome) play
 - High-resolution resource patches — drop-in upscaled asset packs at any integer scale (2x, 3x, ...) layered on top of the original game data
 - Script IR patching — rewrite game scripts at the IR level, enabling UTF-8 text replacement for translations and localization
 - Save compatibility with the original engine — saves are interchangeable in both directions

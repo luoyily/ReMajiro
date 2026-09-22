@@ -29,12 +29,13 @@ impl EngineWorker {
         let profile = match game.as_str() {
             "owarusekai" => &GameProfile::OWARUSEKAI,
             "ruri" => &GameProfile::RURI,
+            "paradise" => &GameProfile::PARADISE,
             other => return Err(js_error(format!("unknown game profile {other:?}"))),
         };
         let files: Vec<(String, u64)> = serde_json::from_str(&files_json)
             .map_err(|error| js_error(format!("bad file listing: {error}")))?;
         let bridge = Bridge::new(sab).map_err(js_error)?;
-        install_worker_services(bridge.clone());
+        install_worker_services(bridge.clone(), profile.bin_name);
         let reader: std::sync::Arc<dyn formats::remote::RemoteReader> = std::sync::Arc::new(
             bridge,
         );
@@ -291,8 +292,8 @@ impl EngineWorker {
         }
     }
 }
-fn install_worker_services(bridge: Bridge) {
-    crate::adapters::install_panic_reporting();
+fn install_worker_services(bridge: Bridge, bin_name: &str) {
+    crate::adapters::install_panic_reporting(bin_name.to_owned());
     crate::adapters::install_save_time_formatter();
     let make_sink = || -> Box<dyn Fn(&str) + Send + Sync> {
         Box::new(|line| web_sys::console::log_1(&line.into()))
