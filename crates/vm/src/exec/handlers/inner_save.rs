@@ -87,20 +87,20 @@ impl crate::exec::Vm {
                 let slot = args.int_or(0, 0) as i64;
                 let s = host.save_read_meta(slot);
                 eprintln!("[SAVE] read_meta slot={} {:?}", slot, s);
-                self.stack.push(Value::string_from_str(&s));
+                self.stack.push(Value::string_text(&s));
                 Some(Ok(InnerOutcome::Normal))
             }
             0xA549E852 => {
                 let slot = args.int_or(0, 0) as i64;
                 let s = host.save_get_timestamp(slot);
                 eprintln!("[SAVE] get_timestamp slot={} {:?}", slot, s);
-                self.stack.push(Value::string_from_str(&s));
+                self.stack.push(Value::string_text(&s));
                 Some(Ok(InnerOutcome::Normal))
             }
             0x4C99B0EA => {
                 let s = host.save_get_description();
                 eprintln!("[SAVE] get_description {:?}", s);
-                self.stack.push(Value::string_from_str(&s));
+                self.stack.push(Value::string_text(&s));
                 Some(Ok(InnerOutcome::Normal))
             }
             0x9143DC9E => {
@@ -160,11 +160,12 @@ impl crate::exec::Vm {
             0xF8004993 => {
                 if count >= 1 {
                     if let Some(desc) = args.bytes(0) {
-                        self.set_save_description(desc);
-                        host.save_set_description(desc);
+                        let desc = host.localize_save_description(desc);
+                        self.set_save_description(&desc);
+                        host.save_set_description(&desc);
                         eprintln!(
-                            "[SAVE] resource_load desc={:?}",
-                            String::from_utf8_lossy(desc)
+                            "[SAVE] resource_load desc={:?}", String::from_utf8_lossy(&
+                            desc)
                         );
                     }
                 }

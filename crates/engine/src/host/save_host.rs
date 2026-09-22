@@ -290,7 +290,8 @@ impl EngineHost {
                 return;
             }
         };
-        if let Err(error) = patch_sav_description(&mut bytes, title) {
+        let localized = self.localize_save_description_impl(title);
+        if let Err(error) = patch_sav_description(&mut bytes, &localized) {
             eprintln!("[SAVE] rejected title patch {}: {}", name, error);
             return;
         }
@@ -326,7 +327,11 @@ impl EngineHost {
             .ok()
             .flatten()
             .and_then(|bytes| read_sav_meta_with_layout(&bytes, &self.sav_layout).ok())
-            .map(|(header, _)| decode_sjis(nul_trim(&header.description)))
+            .map(|(header, _)| {
+                let text = self.description_text(&header.description);
+                self.remember_save_description_bytes(&text);
+                text
+            })
             .unwrap_or_default()
     }
     pub(super) fn save_get_timestamp_impl(&mut self, slot: i64) -> String {
@@ -347,7 +352,61 @@ impl EngineHost {
             .unwrap_or_default()
     }
     pub(super) fn save_get_description_impl(&mut self) -> String {
-        decode_sjis(nul_trim(&self.save_description))
+        let text = self.description_text(&self.save_description);
+        self.remember_save_description_bytes(&text);
+        text
+    }
+    pub(super) fn description_text(&self, raw: &[u8]) -> String {
+        let raw = nul_trim(raw);
+        crate::text::unicode_override_text(raw)
+            .map(str::to_owned)
+            .unwrap_or_else(|| decode_sjis(raw))
+    }
+    pub(super) fn remember_save_description_bytes(&mut self, text: &str) {
+        self.last_save_meta_bytes = vm::Value::string_text(text)
+            .as_str_bytes()
+            .unwrap_or(&[])
+            .to_vec();
+    }
+    pub fn renders_save_description_verbatim(&self, text: &[u8]) -> bool {
+        let desc = &self.last_save_meta_bytes;
+        desc.len() >= 4 && text.len() >= desc.len()
+            && text.windows(desc.len()).any(|window| window == desc.as_slice())
+    }
+    pub(super) fn decode_save_description_render(&self, text: &[u8]) -> Option<String> {
+        let desc = &self.last_save_meta_bytes;
+        let decoded_desc = std::str::from_utf8(desc).ok()?;
+        if decoded_desc.is_ascii() {
+            return None;
+        }
+        if text.len() < desc.len() {
+            return None;
+        }
+        let position = text
+            .windows(desc.len())
+            .position(|window| window == desc.as_slice())?;
+        let head = sjis_to_string(&text[..position]);
+        let tail = sjis_to_string(&text[position + desc.len()..]);
+        Some(format!("{head}{decoded_desc}{tail}"))
+    }
+    pub(super) fn localize_save_description_impl<'a>(
+        &self,
+        description: &'a [u8],
+    ) -> std::borrow::Cow<'a, [u8]> {
+        if !self.patch.as_ref().is_some_and(|patch| patch.one_way_save_titles()) {
+            return std::borrow::Cow::Borrowed(description);
+        }
+        let raw = nul_trim(description);
+        let Some(text) = self.localize_ir_display(raw) else {
+            return std::borrow::Cow::Borrowed(description);
+        };
+        let mut bytes = text.into_bytes();
+        let mut end = bytes.len().min(127);
+        while end > 0 && end < bytes.len() && bytes[end] & 0xC0 == 0x80 {
+            end -= 1;
+        }
+        bytes.truncate(end);
+        std::borrow::Cow::Owned(bytes)
     }
     pub(super) fn save_set_description_impl(&mut self, description: &[u8]) {
         self.save_description.clear();

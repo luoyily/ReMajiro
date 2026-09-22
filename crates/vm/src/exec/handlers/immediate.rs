@@ -77,10 +77,33 @@ impl crate::exec::Vm {
         };
         if scope == Scope::Stack {
             let abs = self.stack_scope_abs(idx);
+            if crate::diag_log_enabled() && matches!(op_base, 0x1B0..= 0x1B5)
+                && result.type_tag == crate::value::TAG_STRING
+            {
+                let bytes = result.as_str_bytes().unwrap_or(&[]);
+                let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(28)])
+                    .into_owned();
+                eprintln!(
+                    "[STORE] op=0x{:03X} S:{:08X} i{} len={} val={:?}", op_base, imm, idx
+                    as i16, bytes.len(), preview
+                );
+            }
             if let Some(slot) = self.stack.peek_slot_mut(abs) {
                 *slot = result;
             }
         } else {
+            if crate::diag_log_enabled() && matches!(op_base, 0x1B0..= 0x1B5)
+                && result.type_tag == crate::value::TAG_STRING
+            {
+                let bytes = result.as_str_bytes().unwrap_or(&[]);
+                let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(28)])
+                    .into_owned();
+                eprintln!(
+                    "[STORE] op=0x{:03X} {}:{:08X} len={} val={:?}", op_base, match scope
+                    { Scope::Global => 'G', Scope::Local => 'L', Scope::Thread => 'T',
+                    Scope::Stack => 'S', }, imm, bytes.len(), preview
+                );
+            }
             self.write_var(scope, imm, idx, result);
         }
         if pop {

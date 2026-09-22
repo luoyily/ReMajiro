@@ -121,6 +121,21 @@ impl Host for EngineHost {
     fn save_set_description(&mut self, description: &[u8]) {
         self.save_set_description_impl(description)
     }
+    fn localize_save_description<'a>(
+        &self,
+        description: &'a [u8],
+    ) -> std::borrow::Cow<'a, [u8]> {
+        self.localize_save_description_impl(description)
+    }
+    fn localized_first_line_enabled(&self) -> bool {
+        self.patch.as_ref().is_some_and(|patch| patch.one_way_save_titles())
+    }
+    fn take_text_line_localized_parts(&mut self) -> Vec<vm::host::LocalizedLinePart> {
+        std::mem::take(&mut self.last_localized_parts)
+    }
+    fn translate_popup_name(&self, name: &[u8]) -> Option<String> {
+        crate::patch::localize_display_message(&self.ir_display_messages, name)
+    }
     fn scene_unload_and_exit(&mut self) {
         self.scene_unload_and_exit_impl()
     }

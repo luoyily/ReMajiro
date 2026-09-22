@@ -71,9 +71,15 @@ fn format_last_write_time(modified: SystemTime) -> Option<String> {
 #[cfg(windows)]
 pub fn with_application_icon(attributes: WindowAttributes) -> WindowAttributes {
     use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
-    let icon = winit::window::Icon::from_resource(1, None)
-        .expect("load embedded application icon resource 1");
-    attributes.with_window_icon(Some(icon.clone())).with_taskbar_icon(Some(icon))
+    match winit::window::Icon::from_resource(1, None) {
+        Ok(icon) => {
+            attributes.with_window_icon(Some(icon.clone())).with_taskbar_icon(Some(icon))
+        }
+        Err(error) => {
+            eprintln!("[WINDOW] no embedded icon resource, using default: {error}");
+            attributes
+        }
+    }
 }
 #[cfg(not(windows))]
 pub fn with_application_icon(attributes: WindowAttributes) -> WindowAttributes {

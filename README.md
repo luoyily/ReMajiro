@@ -7,8 +7,8 @@ Rust-compatible implementation of the Majiro Engine
 - One codebase, two backends: native desktop (winit + wgpu) and WebAssembly (wasm32) for in-browser play
 - High-resolution resource patches — drop-in upscaled asset packs at any integer scale (2x, 3x, ...) layered on top of the original game data
 - Script IR patching — rewrite game scripts at the IR level, enabling UTF-8 text replacement for translations and localization
-- Save compatibility with the original engine — saves are theoretically interchangeable in both directions (loading original-engine saves into this implementation is tested)
-- Per-game build profiles; ships with two build targets
+- Save compatibility with the original engine — saves are interchangeable in both directions
+- Per-game build profiles; ships with multi build targets
 
 ## Tested Platforms
 
@@ -23,6 +23,7 @@ Rust-compatible implementation of the Majiro Engine
 
 - 『終わる世界とバースデイ』 (*Owaru Sekai to Birthday* — The end of the world, and happy birthday)
 - 『ルリのかさね ～いもうと物語り～』 (*Ruri no Kasane: Imouto Monogatari*)
+- 『終わる世界と双子座のパラダイス』 (*Owaru Sekai to Futagoza no Paradise*)
 
 ## Getting Started
 
@@ -31,7 +32,7 @@ Prerequisites: a stable [Rust](https://rustup.rs) toolchain. The WASM target add
 ### Native (Windows)
 
 ```sh
-cargo build --release --bin owarusekai --bin ruri
+cargo build --release --bin owarusekai --bin ruri --bin paradise
 ```
 
 ### WebAssembly

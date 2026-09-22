@@ -1,0 +1,16 @@
+[package]
+name = "paradise"
+version = "0.1.0"
+edition = "2021"
+description = "paradise game entry point (終わる世界と双子座のパラダイス): window, asset loading, engine bootstrap"
+
+[[bin]]
+name = "paradise"
+path = "src/main.rs"
+
+[dependencies]
+game = { path = "../owarusekai" }
+engine = { path = "../engine" }
+
+[build-dependencies]
+winresource = { version = "0.1.31", default-features = false }

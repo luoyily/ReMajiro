@@ -27,6 +27,12 @@ impl SavLayout {
         count_block: 0x210,
         thumb_pixel_size: 4,
     };
+    pub const FD: SavLayout = SavLayout {
+        magic: b"MajiroSavV1.104",
+        header_size: 0xA560,
+        count_block: 0x210,
+        thumb_pixel_size: 3,
+    };
     #[inline]
     pub const fn header_gap_size(&self) -> usize {
         self.count_block - 0x90

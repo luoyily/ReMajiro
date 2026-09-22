@@ -1215,6 +1215,13 @@ pub trait Host {
     fn save_set_description(&mut self, description: &[u8]) {
         eprintln!("[SAVE] set_description {:?}", String::from_utf8_lossy(description));
     }
+    fn localize_save_description<'a>(
+        &self,
+        description: &'a [u8],
+    ) -> std::borrow::Cow<'a, [u8]> {
+        let _ = description;
+        std::borrow::Cow::Borrowed(description)
+    }
     fn save_snapshot_state(&mut self) {
         eprintln!("[SAVE] snapshot_state");
     }
@@ -1331,6 +1338,16 @@ pub trait Host {
             String::from_utf8_lossy(name)
         );
     }
+    fn take_text_line_localized_parts(&mut self) -> Vec<LocalizedLinePart> {
+        Vec::new()
+    }
+    fn localized_first_line_enabled(&self) -> bool {
+        false
+    }
+    fn translate_popup_name(&self, name: &[u8]) -> Option<String> {
+        let _ = name;
+        None
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextSite {
@@ -1343,6 +1360,23 @@ pub struct DisplayTextSite {
     pub script_name: Vec<u8>,
     pub render_offset: usize,
     pub code_crc32: u32,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LocalizedLinePart {
+    Text(String),
+    Wait,
+    Newline,
+    NewlineRelative,
+}
+impl LocalizedLinePart {
+    pub fn from_control_kind(kind: crate::text::ControlCodeKind) -> Option<Self> {
+        match kind {
+            crate::text::ControlCodeKind::Wait => Some(Self::Wait),
+            crate::text::ControlCodeKind::Newline => Some(Self::Newline),
+            crate::text::ControlCodeKind::NewlineRelative => Some(Self::NewlineRelative),
+            _ => None,
+        }
+    }
 }
 pub struct LoadedScript {
     pub name: String,

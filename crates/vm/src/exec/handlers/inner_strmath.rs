@@ -1,4 +1,5 @@
 use crate::exec::VmError;
+use crate::host::Host;
 use crate::value::Value;
 use super::helpers::{decode_sjis_lossy, sjis_mbsicmp, utf8_override_text, InnerArgs};
 use super::inner::InnerOutcome;
@@ -10,6 +11,19 @@ pub(super) const HASHES: &[u32] = &[
 ];
 const MAX_ARRAY_CELLS: usize = 1_000_000;
 impl crate::exec::Vm {
+    pub(crate) fn handle_text_first_line_localized<H: Host>(
+        &mut self,
+        hash: u32,
+        host: &mut H,
+    ) -> Option<Result<InnerOutcome, VmError>> {
+        if hash != 0x05EA6E4D || !host.localized_first_line_enabled() {
+            return None;
+        }
+        let mut bytes = self.text.localized_page_accumulator.clone();
+        bytes.push(0);
+        self.stack.push(Value::string(bytes));
+        Some(Ok(InnerOutcome::Normal))
+    }
     pub(super) fn handle_inner_strmath(
         &mut self,
         hash: u32,

@@ -101,6 +101,15 @@ impl Value {
         let (cow, _, _) = encoding_rs::SHIFT_JIS.encode(s);
         Self::string(cow.into_owned())
     }
+    pub fn string_text(s: &str) -> Self {
+        let (sjis, _, _) = encoding_rs::SHIFT_JIS.encode(s);
+        let (round_trip, _, _) = encoding_rs::SHIFT_JIS.decode(&sjis);
+        if round_trip == s {
+            Self::string(sjis.into_owned())
+        } else {
+            Self::string(s.as_bytes().to_vec())
+        }
+    }
     pub fn null() -> Self {
         Self::int(0)
     }

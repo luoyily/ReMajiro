@@ -12,6 +12,45 @@ impl EngineHost {
                     })
             }
         };
+        let mut parts: Vec<vm::host::LocalizedLinePart> = Vec::new();
+        match &localized {
+            Some(tokens) => {
+                for token in tokens {
+                    match token {
+                        crate::patch::LocalizedToken::Text(text) => {
+                            parts.push(vm::host::LocalizedLinePart::Text(text.clone()));
+                        }
+                        crate::patch::LocalizedToken::Control(control) => {
+                            if let Some(part) = vm::host::LocalizedLinePart::from_control_kind(
+                                control.kind,
+                            ) {
+                                parts.push(part);
+                            }
+                        }
+                    }
+                }
+            }
+            None => {
+                for token in vm::text::tokenize(bytes) {
+                    match token {
+                        vm::text::TextToken::Text(text) => {
+                            parts
+                                .push(
+                                    vm::host::LocalizedLinePart::Text(sjis_to_string(&text)),
+                                )
+                        }
+                        vm::text::TextToken::Control(control) => {
+                            if let Some(part) = vm::host::LocalizedLinePart::from_control_kind(
+                                control.kind,
+                            ) {
+                                parts.push(part);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.last_localized_parts = parts;
         let line = match localized {
             Some(tokens) => self.text_renderer.consume_localized_line(&tokens),
             None => self.text_renderer.consume_line(bytes),
@@ -136,9 +175,16 @@ impl EngineHost {
         height: Option<i32>,
         alignment: Option<i32>,
     ) {
-        let localized = crate::text::unicode_override_text(text)
-            .map(str::to_owned)
-            .or_else(|| self.localize_ir_display(text));
+        let save_desc_verbatim = self.renders_save_description_verbatim(text);
+        let localized = if save_desc_verbatim {
+            crate::text::unicode_override_text(text)
+                .map(str::to_owned)
+                .or_else(|| self.decode_save_description_render(text))
+        } else {
+            crate::text::unicode_override_text(text)
+                .map(str::to_owned)
+                .or_else(|| self.localize_ir_display(text))
+        };
         let page_handle = self.text_renderer.fontout_page(context_id);
         let presentation_scale = self
             .patch

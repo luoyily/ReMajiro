@@ -13,6 +13,9 @@ use crate::value::{
     TAG_STRING, TAG_STRING_ARRAY,
 };
 const INNER_INSTRUCTION_SIZE: usize = 8;
+const FD_DIFF_NAME_PRIMARY: u32 = 0xC741_CF17;
+const FD_DIFF_NAME_SHADOW: u32 = 0xFF03_EA89;
+const FD_DIFF_NAME_ALTERNATES: [u32; 2] = [0x0C1D_1CB2, 0x1118_2C0A];
 type RootSaveContext<'a> = (
     &'a [CallFrame],
     &'a [Value],
@@ -287,10 +290,8 @@ impl Vm {
                 retired_callbacks
             );
         }
-        if let Some(system) = host.save_read_system() {
-            self.restore_system_snapshot(&system);
-        }
         self.restore_save(save, host)?;
+        self.relay_alternate_diff_name();
         host.save_restore_audio_state(&saved_audio_state);
         host.save_set_dialog_available(true);
         host.save_mark_ready();
@@ -303,10 +304,28 @@ impl Vm {
         eprintln!("[SAVE] HOT_RESET loaded=1 scheduled {} callbacks", callbacks);
         Ok(true)
     }
-    fn restore_system_snapshot(&mut self, system: &MssFile) {
-        let mut bridge = RestoreBridge::new();
-        let values = bridge.pool(&system.values, Scope::Global);
-        self.restore_system_globals(system.keys.iter().copied().zip(values));
+    fn nonempty_local_string(&self, key: u32) -> Option<Value> {
+        let value = self.read_var(crate::value::Scope::Local, key, 0)?;
+        match value.as_str_bytes().filter(|bytes| bytes.iter().any(|&b| b != 0)) {
+            Some(_) => Some(value),
+            None => None,
+        }
+    }
+    fn relay_alternate_diff_name(&mut self) {
+        if self.nonempty_local_string(FD_DIFF_NAME_PRIMARY).is_some()
+            || self.nonempty_local_string(FD_DIFF_NAME_SHADOW).is_some()
+        {
+            return;
+        }
+        for key in FD_DIFF_NAME_ALTERNATES {
+            if let Some(name) = self.nonempty_local_string(key) {
+                eprintln!(
+                    "[SAVE] diff-name relay: L:{key:08X} -> replay shadow L:{FD_DIFF_NAME_SHADOW:08X} (fd F-0042)"
+                );
+                self.write_var(Scope::Local, FD_DIFF_NAME_SHADOW, 0, name);
+                return;
+            }
+        }
     }
     fn restore_save<H: Host>(
         &mut self,
@@ -461,7 +480,9 @@ impl Vm {
         self.text.history_buf.truncate(40_000);
         self.text.clear_history();
         self.text.page_accumulator.clear();
+        self.text.localized_page_accumulator.clear();
         self.text.page_capture_enabled = false;
+        self.text.localized_page_capture_enabled = false;
         self.text.display_state = 0;
         self.text.skip_depth = 0;
         self.text.pending_render_line.clear();

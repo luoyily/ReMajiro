@@ -42,6 +42,34 @@ impl crate::exec::Vm {
         args: &[Value],
         opcode_start_ip: usize,
     ) -> Option<Result<InnerOutcome, crate::exec::VmError>> {
+        if crate::diag_log_enabled()
+            && matches!(hash, 0xD01BE374 | 0x56BBBA3A | 0x30636D6E)
+        {
+            let script = self
+                .frames
+                .last()
+                .map(|frame| {
+                    self.scripts[frame.script_idx]
+                        .name
+                        .as_deref()
+                        .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+            let argdump = args
+                .iter()
+                .rev()
+                .map(|value| match value.as_int() {
+                    Some(int) => int.to_string(),
+                    None => format!("@t{}", value.type_tag),
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            eprintln!(
+                "[GFX-CALL] op=0x{:08X} {}+0x{:X} args=[{}]", hash, script,
+                opcode_start_ip, argdump
+            );
+        }
         match hash {
             0x01B4517C => {
                 let sprite = arg_int_from_top(args, count, 0) as u32;

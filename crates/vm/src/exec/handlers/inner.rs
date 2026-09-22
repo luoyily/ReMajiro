@@ -142,6 +142,7 @@ impl crate::exec::Vm {
         dispatch_handler!(
             self.handle_inner_input(hash, count, has_retval, host, & args)
         );
+        dispatch_handler!(self.handle_text_first_line_localized(hash, host));
         dispatch_handler!(self.handle_inner_strmath(hash, count, has_retval, & args));
         dispatch_handler!(self.handle_inner_file(hash, count, has_retval, host, & args));
         dispatch_handler!(self.handle_inner_gameplay(hash, count, & args));

@@ -418,6 +418,8 @@ pub struct EngineHost {
     save_last_command_active: bool,
     storage: Arc<dyn SaveStore>,
     save_description: Vec<u8>,
+    last_save_meta_bytes: Vec<u8>,
+    last_localized_parts: Vec<vm::host::LocalizedLinePart>,
     save_thumbnail: Option<formats::save::Thumbnail>,
     exit_requested: bool,
 }
@@ -608,6 +610,8 @@ impl EngineHost {
             save_last_command_active: false,
             storage: Arc::new(FsStore::new("savedata")),
             save_description: Vec::new(),
+            last_save_meta_bytes: Vec::new(),
+            last_localized_parts: Vec::new(),
             save_thumbnail: None,
             exit_requested: false,
         };
@@ -2194,6 +2198,12 @@ impl EngineHost {
                 &self.ir_replay_messages,
                 raw,
             ))
+            .or_else(|| {
+                crate::patch::localize_trimmed_replay_message(
+                    &self.ir_replay_messages,
+                    raw,
+                )
+            })
     }
 }
 fn native_script_filename(name: &str) -> String {

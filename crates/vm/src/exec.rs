@@ -1,5 +1,5 @@
 use crate::cursor::Cursor;
-use crate::host::{Host, HotspotEvent};
+use crate::host::{Host, HotspotEvent, LocalizedLinePart};
 use crate::opcode::is_valid_outer_opcode;
 use crate::value::{Scope, Stack, Value};
 pub(crate) const MARK_SYSVAR_HASH: u32 = 0x11F9_1FD3;
@@ -96,6 +96,8 @@ pub(crate) struct TextVmState {
     pub(crate) accumulator: Vec<u8>,
     pub(crate) page_accumulator: Vec<u8>,
     pub(crate) page_capture_enabled: bool,
+    pub(crate) localized_page_accumulator: Vec<u8>,
+    pub(crate) localized_page_capture_enabled: bool,
     pub(crate) history_buf: Vec<u8>,
     pub(crate) pending_render_line: Vec<u8>,
     pub(crate) last_history_render: Option<(usize, usize)>,
@@ -113,6 +115,8 @@ impl Default for TextVmState {
             accumulator: Vec::new(),
             page_accumulator: Vec::new(),
             page_capture_enabled: false,
+            localized_page_accumulator: Vec::new(),
+            localized_page_capture_enabled: false,
             history_buf: vec![0; 40_000],
             pending_render_line: Vec::new(),
             last_history_render: None,
@@ -129,7 +133,9 @@ impl TextVmState {
     pub(crate) fn reset_for_wait(&mut self) {
         self.clear_history();
         self.page_accumulator.clear();
+        self.localized_page_accumulator.clear();
         self.page_capture_enabled = true;
+        self.localized_page_capture_enabled = true;
         self.render_state = 0;
         self.pending_render_line.clear();
         self.last_history_render = None;
@@ -137,7 +143,9 @@ impl TextVmState {
     pub(crate) fn reset_for_replay_wait(&mut self) {
         self.clear_history();
         self.page_accumulator.clear();
+        self.localized_page_accumulator.clear();
         self.page_capture_enabled = true;
+        self.localized_page_capture_enabled = true;
         self.render_state = 0;
         self.last_history_render = None;
     }
@@ -470,6 +478,12 @@ fn process_saved_context_phase(scripts: &[LoadedCode], ctx: &mut ExecContext) ->
 }
 fn two_hex_fields(a: i32, b: i32) -> Vec<u8> {
     format!("0x{:08x}0x{:08x}", a as u32, b as u32).into_bytes()
+}
+fn popup_name_value<H: Host>(host: &H, name: &[u8]) -> Value {
+    match host.translate_popup_name(name) {
+        Some(text) => Value::string(text.into_bytes()),
+        None => Value::string(name.to_vec()),
+    }
 }
 #[derive(Clone, Copy)]
 struct InlineRecordMarkers {
@@ -1054,6 +1068,36 @@ impl Vm {
                 let caller_return_ip = frame.cursor.ip;
                 let caller_ip_at_instr = start_ip;
                 let caller_sp = self.stack.len();
+                if crate::diag_log_enabled() && param_count > 0 {
+                    let mut params = Vec::new();
+                    for k in 0..param_count as usize {
+                        let v = self
+                            .stack
+                            .slot(caller_sp.saturating_sub(param_count as usize) + k);
+                        let desc = match v {
+                            Some(
+                                value,
+                            ) if value.type_tag == crate::value::TAG_STRING => {
+                                let bytes = value.as_str_bytes().unwrap_or(&[]);
+                                format!(
+                                    "s{:?}", String::from_utf8_lossy(& bytes[..bytes.len()
+                                    .min(24)])
+                                )
+                            }
+                            Some(value) => {
+                                format!("i{}", value.as_int().unwrap_or(value.bits as i32))
+                            }
+                            None => "none".to_string(),
+                        };
+                        params.push(desc);
+                    }
+                    eprintln!(
+                        "[CALL] {:08X} {}+0x{:X} argc={} [{}]", hash, self.scripts
+                        .get(caller_script).and_then(| s | s.name.as_deref()).map(| b |
+                        String::from_utf8_lossy(b).into_owned()).unwrap_or_default(),
+                        caller_ip_at_instr, param_count, params.join(",")
+                    );
+                }
                 if hash == 0xE9E9_9F12 {
                     crate::text_trace!(
                         "[VM] BIRTHDAY_DIALOG_CALL ctx=0x{context_id:08X} script={caller_script} ip=0x{start_ip:X}"
@@ -1087,6 +1131,17 @@ impl Vm {
             0x834 | 0x835 => {
                 let hash = frame.cursor.read_u32()?;
                 let count = frame.cursor.read_i16()? as usize;
+                if crate::diag_log_enabled() {
+                    let script = self
+                        .scripts
+                        .get(frame.script_idx)
+                        .and_then(|s| s.name.as_deref())
+                        .map(|b| String::from_utf8_lossy(b).into_owned())
+                        .unwrap_or_default();
+                    eprintln!(
+                        "[INNER] {:08X} {}+0x{:X} argc={}", hash, script, start_ip, count
+                    );
+                }
                 let result = self
                     .dispatch_inner(hash, count, opcode == 0x835, host, start_ip)?;
                 Ok(result)
@@ -1275,7 +1330,12 @@ impl Vm {
                 ) {
                     self.text.pending_render_line = remainder;
                     self.frames.last_mut().expect("frame exists").cursor.ip = start_ip;
-                    self.invoke_host_func(0x44A4_FF72, &[Value::string(name)], false)?;
+                    let name_value = if host.localized_first_line_enabled() {
+                        popup_name_value(host, &name)
+                    } else {
+                        Value::string(name.clone())
+                    };
+                    self.invoke_host_func(0x44A4_FF72, &[name_value], false)?;
                     return Ok(StepResult::Continue);
                 }
                 if !self.text.pending_render_line.is_empty() {
@@ -1291,6 +1351,8 @@ impl Vm {
                     let start_y = host.get_text_pos_y();
                     let markers = inline_record_markers(&bytes);
                     host.text_line(&site, &bytes);
+                    let localized_parts = host.take_text_line_localized_parts();
+                    self.capture_localized_page_accumulator(&localized_parts);
                     self.text
                         .update_inline_records(
                             markers,
@@ -1729,6 +1791,29 @@ impl Vm {
                         }
                         _ => {}
                     }
+                }
+            }
+        }
+    }
+    fn capture_localized_page_accumulator(&mut self, parts: &[LocalizedLinePart]) {
+        if !self.text.history_capture_enabled() {
+            return;
+        }
+        for part in parts {
+            match part {
+                LocalizedLinePart::Text(text) => {
+                    if self.text.localized_page_capture_enabled {
+                        self.text
+                            .localized_page_accumulator
+                            .extend_from_slice(text.as_bytes());
+                    }
+                }
+                LocalizedLinePart::Wait => {
+                    self.text.localized_page_accumulator.clear();
+                    self.text.localized_page_capture_enabled = true;
+                }
+                LocalizedLinePart::Newline | LocalizedLinePart::NewlineRelative => {
+                    self.text.localized_page_capture_enabled = false;
                 }
             }
         }

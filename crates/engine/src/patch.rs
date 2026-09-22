@@ -34,6 +34,12 @@ struct Manifest {
     presentation: Option<PresentationManifest>,
     #[serde(default)]
     transitions: Option<TransitionManifest>,
+    #[serde(default)]
+    save_compatibility: Option<SaveCompatibilityManifest>,
+}
+#[derive(Debug, Deserialize)]
+struct SaveCompatibilityManifest {
+    bidirectional: Option<bool>,
 }
 #[derive(Debug, Deserialize)]
 struct LocalizationManifest {
@@ -123,6 +129,7 @@ pub struct PatchBundle {
     fonts: Vec<PathBuf>,
     presentation: PresentationConfig,
     transitions: TransitionConfig,
+    one_way_save_titles: bool,
     catalogs: HashMap<String, ScriptCatalog>,
     replay_messages: Vec<Message>,
     images: HashMap<String, PathBuf>,
@@ -164,6 +171,10 @@ impl PatchBundle {
             &mut manifest,
             &manifest_path.display().to_string(),
         )?;
+        let one_way_save_titles = manifest
+            .save_compatibility
+            .as_ref()
+            .is_some_and(|save| !save.bidirectional.unwrap_or(true));
         let catalogs = load_catalogs(&root.join("text"))?;
         let replay_messages = catalogs
             .values()
@@ -222,6 +233,7 @@ impl PatchBundle {
             fonts,
             presentation,
             transitions,
+            one_way_save_titles,
             catalogs,
             replay_messages,
             images,
@@ -275,6 +287,10 @@ impl PatchBundle {
         }
         let presentation = manifest_presentation(&manifest, manifest_name)?;
         let transitions = manifest_transitions(&mut manifest, manifest_name)?;
+        let one_way_save_titles = manifest
+            .save_compatibility
+            .as_ref()
+            .is_some_and(|save| !save.bidirectional.unwrap_or(true));
         let text_prefix = format!("{prefix}text/");
         let images_prefix = format!("{prefix}images/");
         let files_prefix = format!("{prefix}files/");
@@ -345,6 +361,7 @@ impl PatchBundle {
             fonts,
             presentation,
             transitions,
+            one_way_save_titles,
             catalogs,
             replay_messages,
             images,
@@ -368,6 +385,9 @@ impl PatchBundle {
     }
     pub fn presentation(&self) -> PresentationConfig {
         self.presentation.clone()
+    }
+    pub fn one_way_save_titles(&self) -> bool {
+        self.one_way_save_titles
     }
     pub(crate) fn apply_script_transitions(
         &self,
@@ -972,6 +992,25 @@ pub fn localize_display_message(messages: &[Message], raw: &[u8]) -> Option<Stri
         }
     }
     None
+}
+pub(crate) fn localize_trimmed_replay_message(
+    messages: &[Message],
+    raw: &[u8],
+) -> Option<String> {
+    let raw = raw.split(|byte| *byte == 0).next().unwrap_or(raw);
+    let (decoded, _, had_errors) = SHIFT_JIS.decode(raw);
+    if had_errors {
+        return None;
+    }
+    let candidate = decoded.trim();
+    messages
+        .iter()
+        .find_map(|message| {
+            let source = message.source.as_deref()?;
+            let trimmed = source.trim();
+            (trimmed != source && !trimmed.contains('{') && trimmed == candidate)
+                .then(|| message.text.trim().to_owned())
+        })
 }
 fn match_template(pattern: &str, actual: &str) -> Option<HashMap<String, String>> {
     let mut captures = HashMap::new();

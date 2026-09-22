@@ -55,4 +55,20 @@ impl GameProfile {
         default_rct_key_hash: 0x9CAC_E44B,
         gameplay_flags: None,
     };
+    pub const PARADISE: GameProfile = GameProfile {
+        bin_name: "paradise",
+        title: "終わる世界と双子座のパラダイス",
+        internal_w: crate::gpu::INTERNAL_W,
+        internal_h: crate::gpu::INTERNAL_H,
+        sav: SavLayout::FD,
+        arc_priority: Some(
+            &["update", "fastdata", "scenario", "data", "slowdata", "stream", "voice"],
+        ),
+        preload_scripts: &["pic", "yazlib"],
+        entry_script: "start",
+        entry_label: "$init@GLOBAL",
+        hot_reset_hash: 0x3857_9896,
+        default_rct_key_hash: 0x9CAC_E44B,
+        gameplay_flags: None,
+    };
 }

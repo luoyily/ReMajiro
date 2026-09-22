@@ -373,9 +373,14 @@ impl crate::exec::Vm {
                         &self.text.pending_render_line,
                     ) {
                         self.text.pending_render_line = remainder;
+                        let name_value = if host.localized_first_line_enabled() {
+                            crate::exec::popup_name_value(host, &name)
+                        } else {
+                            Value::string(name.clone())
+                        };
                         self.defer_inner_host_bridge(
                             0x44A4_FF72,
-                            vec![Value::string(name)],
+                            vec![name_value],
                             false,
                         );
                         self.text.replay = Some(state);
@@ -529,6 +534,7 @@ impl crate::exec::Vm {
                     self.text.accumulator.clear();
                 }
                 self.text.page_capture_enabled = false;
+                self.text.localized_page_capture_enabled = false;
                 self.defer_inner_host_bridge(0x04AE_36BD, Vec::new(), false);
             }
             ControlCodeKind::Wait => {
