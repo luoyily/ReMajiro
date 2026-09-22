@@ -1341,6 +1341,9 @@ pub trait Host {
     fn take_text_line_localized_parts(&mut self) -> Vec<LocalizedLinePart> {
         Vec::new()
     }
+    fn take_text_line_transcoded(&mut self) -> bool {
+        false
+    }
     fn localized_first_line_enabled(&self) -> bool {
         false
     }

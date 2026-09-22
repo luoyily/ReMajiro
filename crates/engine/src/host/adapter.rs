@@ -133,6 +133,9 @@ impl Host for EngineHost {
     fn take_text_line_localized_parts(&mut self) -> Vec<vm::host::LocalizedLinePart> {
         std::mem::take(&mut self.last_localized_parts)
     }
+    fn take_text_line_transcoded(&mut self) -> bool {
+        std::mem::take(&mut self.last_line_transcoded)
+    }
     fn translate_popup_name(&self, name: &[u8]) -> Option<String> {
         crate::patch::localize_display_message(&self.ir_display_messages, name)
     }

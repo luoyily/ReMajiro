@@ -420,6 +420,7 @@ pub struct EngineHost {
     save_description: Vec<u8>,
     last_save_meta_bytes: Vec<u8>,
     last_localized_parts: Vec<vm::host::LocalizedLinePart>,
+    last_line_transcoded: bool,
     save_thumbnail: Option<formats::save::Thumbnail>,
     exit_requested: bool,
 }
@@ -612,6 +613,7 @@ impl EngineHost {
             save_description: Vec::new(),
             last_save_meta_bytes: Vec::new(),
             last_localized_parts: Vec::new(),
+            last_line_transcoded: false,
             save_thumbnail: None,
             exit_requested: false,
         };
@@ -2155,9 +2157,9 @@ impl EngineHost {
             let ir_start = Instant::now();
             if let Some((loaded, translations)) = source.resolve_with_translations(name)
             {
-                let loaded = self
-                    .absorb_ir_translations(name, ir_start, loaded, translations);
-                return Some(loaded);
+                return Some(
+                    self.finish_ir_resolve(name, ir_start, loaded, translations),
+                );
             }
         }
         if let Some(root) = &self.ir_dir.clone() {
@@ -2165,9 +2167,9 @@ impl EngineHost {
             let ir_start = Instant::now();
             if let Some((loaded, translations)) = source.resolve_with_translations(name)
             {
-                let loaded = self
-                    .absorb_ir_translations(name, ir_start, loaded, translations);
-                return Some(loaded);
+                return Some(
+                    self.finish_ir_resolve(name, ir_start, loaded, translations),
+                );
             }
         }
         MjoSource {
@@ -2175,6 +2177,67 @@ impl EngineHost {
             patch: self.patch.as_deref(),
         }
             .resolve(name)
+    }
+    fn finish_ir_resolve(
+        &mut self,
+        name: &str,
+        ir_start: Instant,
+        mut loaded: LoadedScript,
+        translations: script_source::IrTranslations,
+    ) -> LoadedScript {
+        if let Some(patch) = self.patch.as_deref() {
+            match patch.apply_script_transitions(&loaded.name, &mut loaded.code) {
+                Ok(0) => {}
+                Ok(count) => {
+                    eprintln!(
+                        "[PATCH] {}: replaced {} dot-matrix transition request(s) with fade",
+                        loaded.name, count
+                    )
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[PATCH] {}: transition override ignored: {}", loaded.name, error
+                    )
+                }
+            }
+            loaded.code_crc32 = formats::crypto::crc32(&loaded.code);
+        }
+        if translations.identity_expected {
+            use script_source::{MjoSource, ScriptSource};
+            let archive = MjoSource {
+                vfs: &self.vfs,
+                patch: self.patch.as_deref(),
+            }
+                .resolve(name);
+            match archive {
+                Some(archive) if archive.code == loaded.code => {}
+                Some(archive) => {
+                    eprintln!(
+                        "[IR] ERROR {:?}: v1 override assembles to different bytes than the \
+                         archive script (v1 files may only carry @tr) — loading archive bytes, \
+                         translations dropped",
+                        name
+                    );
+                    return archive;
+                }
+                None => {
+                    eprintln!(
+                        "[IR] WARN {:?}: v1 override has no archive counterpart; identity \
+                         cannot be verified",
+                        name
+                    );
+                }
+            }
+        }
+        if !translations.identity_expected
+            && !self.patch.as_ref().is_some_and(|patch| patch.one_way_save_titles())
+        {
+            eprintln!(
+                "[IR] WARN {:?}: IRv2-modified script under [save_compatibility] bidirectional =                  true — its save titles fall back to the UTF-8 mirror and are not vanilla-compatible;                  consider bidirectional = false",
+                name
+            );
+        }
+        self.absorb_ir_translations(name, ir_start, loaded, translations)
     }
     pub fn localize_ir(
         &self,

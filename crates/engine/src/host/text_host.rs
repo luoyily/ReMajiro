@@ -1,7 +1,9 @@
 use super::*;
 impl EngineHost {
     pub(super) fn text_line_impl(&mut self, site: &vm::TextSite, bytes: &[u8]) {
-        let localized = match crate::text::unicode_override_text(bytes) {
+        let unicode_origin = crate::text::unicode_override_text(bytes);
+        self.last_line_transcoded = unicode_origin.is_some();
+        let localized = match unicode_origin {
             Some(text) => {
                 Some(vec![crate ::patch::LocalizedToken::Text(text.to_owned())])
             }

@@ -87,6 +87,7 @@ impl IrSource<'_> {
 pub struct IrTranslations {
     pub text: Vec<(u32, crate::patch::Message)>,
     pub display: Vec<crate::patch::Message>,
+    pub identity_expected: bool,
 }
 impl IrSource<'_> {
     pub fn resolve_with_translations(
@@ -96,14 +97,37 @@ impl IrSource<'_> {
         let filename = native_script_filename(name);
         let stem = filename.strip_suffix(".mjo").unwrap_or(&filename);
         let path = self.find(stem)?;
-        let text = std::fs::read_to_string(&path).ok()?;
-        let (loaded, translations) = assemble_ir(filename, &text)?;
-        eprintln!("[SCRIPT] IR override {:?} from {}", name, path.display());
-        Some((loaded, translations))
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!(
+                    "[IR] ERROR {:?}: read {}: {error} — falling back to archive",
+                    name, path.display()
+                );
+                return None;
+            }
+        };
+        match assemble_ir(filename, &text) {
+            Ok((loaded, translations)) => {
+                eprintln!("[SCRIPT] IR override {:?} from {}", name, path.display());
+                Some((loaded, translations))
+            }
+            Err(error) => {
+                eprintln!(
+                    "[IR] ERROR {:?}: assembly failed: {error} — falling back to archive",
+                    name
+                );
+                None
+            }
+        }
     }
 }
-fn assemble_ir(filename: String, text: &str) -> Option<(LoadedScript, IrTranslations)> {
-    let module = vm::ir::from_text(text).ok()?;
+fn assemble_ir(
+    filename: String,
+    text: &str,
+) -> Result<(LoadedScript, IrTranslations), String> {
+    let module = vm::ir::from_text(text)?;
+    let identity_expected = module.version == vm::ir::IrVersion::V1;
     let translations = IrTranslations {
         text: module
             .text_translations()
@@ -127,10 +151,12 @@ fn assemble_ir(filename: String, text: &str) -> Option<(LoadedScript, IrTranslat
                 })
             })
             .collect(),
+        identity_expected,
     };
-    let bytes = vm::ir::to_mjo_bytes(&module).ok()?;
-    let mjo = MjoFile::parse(&bytes).ok()?;
-    Some((loaded_script(filename, mjo), translations))
+    let bytes = vm::ir::to_mjo_bytes(&module)?;
+    let mjo = MjoFile::parse(&bytes)
+        .map_err(|error| format!("assembled bytes failed MJO parse: {error:?}"))?;
+    Ok((loaded_script(filename, mjo), translations))
 }
 pub(crate) struct MemoryIrSource {
     pub(crate) files: Arc<HashMap<String, String>>,
@@ -143,9 +169,21 @@ impl MemoryIrSource {
         let filename = native_script_filename(name);
         let stem = filename.strip_suffix(".mjo").unwrap_or(&filename);
         let text = self.files.get(&stem.to_ascii_lowercase())?;
-        let (loaded, translations) = assemble_ir(filename, text)?;
-        eprintln!("[SCRIPT] IR override {:?} from in-memory patch scripts", name);
-        Some((loaded, translations))
+        match assemble_ir(filename, text) {
+            Ok((loaded, translations)) => {
+                eprintln!(
+                    "[SCRIPT] IR override {:?} from in-memory patch scripts", name
+                );
+                Some((loaded, translations))
+            }
+            Err(error) => {
+                eprintln!(
+                    "[IR] ERROR {:?}: assembly failed: {error} — falling back to archive",
+                    name
+                );
+                None
+            }
+        }
     }
 }
 impl ScriptSource for MemoryIrSource {

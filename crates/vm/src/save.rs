@@ -481,6 +481,7 @@ impl Vm {
         self.text.clear_history();
         self.text.page_accumulator.clear();
         self.text.localized_page_accumulator.clear();
+        self.text.localized_first_line_transcoded = false;
         self.text.page_capture_enabled = false;
         self.text.localized_page_capture_enabled = false;
         self.text.display_state = 0;

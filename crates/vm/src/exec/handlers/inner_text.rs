@@ -373,7 +373,7 @@ impl crate::exec::Vm {
                         &self.text.pending_render_line,
                     ) {
                         self.text.pending_render_line = remainder;
-                        let name_value = if host.localized_first_line_enabled() {
+                        let name_value = if self.use_localized_first_line(host) {
                             crate::exec::popup_name_value(host, &name)
                         } else {
                             Value::string(name.clone())

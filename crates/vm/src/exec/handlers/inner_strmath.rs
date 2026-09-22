@@ -16,7 +16,7 @@ impl crate::exec::Vm {
         hash: u32,
         host: &mut H,
     ) -> Option<Result<InnerOutcome, VmError>> {
-        if hash != 0x05EA6E4D || !host.localized_first_line_enabled() {
+        if hash != 0x05EA6E4D || !self.use_localized_first_line(host) {
             return None;
         }
         let mut bytes = self.text.localized_page_accumulator.clone();

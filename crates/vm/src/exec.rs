@@ -98,6 +98,7 @@ pub(crate) struct TextVmState {
     pub(crate) page_capture_enabled: bool,
     pub(crate) localized_page_accumulator: Vec<u8>,
     pub(crate) localized_page_capture_enabled: bool,
+    pub(crate) localized_first_line_transcoded: bool,
     pub(crate) history_buf: Vec<u8>,
     pub(crate) pending_render_line: Vec<u8>,
     pub(crate) last_history_render: Option<(usize, usize)>,
@@ -117,6 +118,7 @@ impl Default for TextVmState {
             page_capture_enabled: false,
             localized_page_accumulator: Vec::new(),
             localized_page_capture_enabled: false,
+            localized_first_line_transcoded: false,
             history_buf: vec![0; 40_000],
             pending_render_line: Vec::new(),
             last_history_render: None,
@@ -136,6 +138,7 @@ impl TextVmState {
         self.localized_page_accumulator.clear();
         self.page_capture_enabled = true;
         self.localized_page_capture_enabled = true;
+        self.localized_first_line_transcoded = false;
         self.render_state = 0;
         self.pending_render_line.clear();
         self.last_history_render = None;
@@ -146,6 +149,7 @@ impl TextVmState {
         self.localized_page_accumulator.clear();
         self.page_capture_enabled = true;
         self.localized_page_capture_enabled = true;
+        self.localized_first_line_transcoded = false;
         self.render_state = 0;
         self.last_history_render = None;
     }
@@ -1330,7 +1334,7 @@ impl Vm {
                 ) {
                     self.text.pending_render_line = remainder;
                     self.frames.last_mut().expect("frame exists").cursor.ip = start_ip;
-                    let name_value = if host.localized_first_line_enabled() {
+                    let name_value = if self.use_localized_first_line(host) {
                         popup_name_value(host, &name)
                     } else {
                         Value::string(name.clone())
@@ -1352,7 +1356,11 @@ impl Vm {
                     let markers = inline_record_markers(&bytes);
                     host.text_line(&site, &bytes);
                     let localized_parts = host.take_text_line_localized_parts();
-                    self.capture_localized_page_accumulator(&localized_parts);
+                    let transcoded = host.take_text_line_transcoded();
+                    self.capture_localized_page_accumulator(
+                        &localized_parts,
+                        transcoded,
+                    );
                     self.text
                         .update_inline_records(
                             markers,
@@ -1795,7 +1803,14 @@ impl Vm {
             }
         }
     }
-    fn capture_localized_page_accumulator(&mut self, parts: &[LocalizedLinePart]) {
+    fn use_localized_first_line(&self, host: &impl Host) -> bool {
+        host.localized_first_line_enabled() || self.text.localized_first_line_transcoded
+    }
+    fn capture_localized_page_accumulator(
+        &mut self,
+        parts: &[LocalizedLinePart],
+        transcoded: bool,
+    ) {
         if !self.text.history_capture_enabled() {
             return;
         }
@@ -1806,11 +1821,13 @@ impl Vm {
                         self.text
                             .localized_page_accumulator
                             .extend_from_slice(text.as_bytes());
+                        self.text.localized_first_line_transcoded |= transcoded;
                     }
                 }
                 LocalizedLinePart::Wait => {
                     self.text.localized_page_accumulator.clear();
                     self.text.localized_page_capture_enabled = true;
+                    self.text.localized_first_line_transcoded = false;
                 }
                 LocalizedLinePart::Newline | LocalizedLinePart::NewlineRelative => {
                     self.text.localized_page_capture_enabled = false;
